@@ -18,12 +18,16 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Bot configuration
-API_ID = os.getenv("12618934")
-API_HASH = os.getenv("49aacd0bc2f8924add29fb02e20c8a16")
-BOT_TOKEN = os.getenv("7857321740:AAHSUfjwO3w6Uffmxm9vCUMl36FtXl5-r6w")
-MONGO_URI = os.getenv("mongodb+srv://saidalimuhamed88:iladias2025@cluster0.qt4dv.mongodb.net/?retryWrites=true&w=majority")
-CHANNEL_USERNAME = "@moviegroupbat"  # Change this
-ADMIN_IDS = set(map(int, os.getenv("ADMIN_IDS", "5032034594").split(",")))  # Comma-separated admin Telegram IDs
+API_ID = os.getenv("API_ID")
+API_HASH = os.getenv("API_HASH")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+MONGO_URI = os.getenv("MONGO_URI")
+CHANNEL_USERNAME = "@YourChannelUsername"  # Change this
+ADMIN_IDS = set(map(int, os.getenv("ADMIN_IDS", "").split(",")))
+
+# Validate MONGO_URI
+if not MONGO_URI:
+    raise ValueError("MONGO_URI environment variable is not set. Please provide a valid MongoDB connection string.")
 
 # Initialize clients with optimization
 app = Client("movie_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN, workers=50)
@@ -58,19 +62,18 @@ async def start(client, message):
 
     if not await check_subscription(user_id):
         await message.reply_photo(
-            photo="https://envs.sh/eWS.jpg",  # Image for non-subscribed users
+            photo="not_subscribed.jpg",
             caption="Please join our channel first!",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Join Channel", url=f"https://t.me/moviegroupbat")],
+                [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
                 [InlineKeyboardButton("Try Again", callback_data="check_sub")]
             ])
         )
         return
     
-    # Different welcome messages for admins and users
     if is_admin:
         await message.reply_photo(
-            photo="https://envs.sh/eeX.jpg",  # Image for admin welcome
+            photo="admin_welcome.jpg",
             caption=(
                 "🎬 Welcome, Admin! 🍿\n"
                 "Fastest Movie Bot at your service!\n"
@@ -80,7 +83,7 @@ async def start(client, message):
         )
     else:
         await message.reply_photo(
-            photo="https://envs.sh/eeX.jpg",  # Image for user welcome
+            photo="user_welcome.jpg",
             caption=(
                 "🎬 Welcome to Movie Bot! 🍿\n"
                 "Fastest way to get your favorite movies!\n"
@@ -93,12 +96,12 @@ async def start(client, message):
 async def check_sub_callback(client, callback):
     user_id = callback.from_user.id
     if await check_subscription(user_id):
-        await callback.message.delete()  # Remove subscription prompt
-        await start(client, callback.message)  # Resend start message
+        await callback.message.delete()
+        await start(client, callback.message)
     else:
         await callback.answer("Please join the channel first!", show_alert=True)
 
-# Handle movie requests (text input) - Available to all
+# Handle movie requests
 @app.on_message(filters.text & filters.private)
 async def handle_movie_request(client, message):
     user_id = message.from_user.id
@@ -108,7 +111,7 @@ async def handle_movie_request(client, message):
             photo="not_subscribed.jpg",
             caption="Please join our channel first!",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Join Channel", url=f"https://t.me/moviegroupbat")],
+                [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
                 [InlineKeyboardButton("Try Again", callback_data="check_sub")]
             ])
         )
@@ -148,7 +151,7 @@ async def handle_movie_upload(client, message):
             photo="not_subscribed.jpg",
             caption="Please join our channel first!",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Join Channel", url=f"https://t.me/moviegroupbat")],
+                [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
                 [InlineKeyboardButton("Try Again", callback_data="check_sub")]
             ])
         )
