@@ -17,13 +17,13 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Bot configuration
-API_ID = os.getenv("API_ID")
-API_HASH = os.getenv("API_HASH")
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-MONGO_URI = os.getenv("MONGO_URI")
-CHANNEL_USERNAME = "@YourChannelUsername"  # Change this
-ADMIN_IDS = set(map(int, os.getenv("ADMIN_IDS", "").split(",")))
+API_ID = os.getenv("12618934")
+API_HASH = os.getenv("49aacd0bc2f8924add29fb02e20c8a16")
+BOT_TOKEN = os.getenv("7857321740:AAHSUfjwO3w6Uffmxm9vCUMl36FtXl5-r6w")
+MONGO_URI = os.getenv("mongo dp not found")
+CHANNEL_USERNAME = "@moviegroupbat"  # Change this
+ADMIN_IDS = set(map(int, os.getenv("ADMIN_IDS", "5032034594").split(",")))  # Comma-separated admin Telegram IDs
+
 
 # Log and validate MONGO_URI
 logger.info(f"Loaded MONGO_URI: {MONGO_URI}")
