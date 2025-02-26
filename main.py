@@ -58,7 +58,7 @@ async def start(client, message):
 
     if not await check_subscription(user_id):
         await message.reply_photo(
-            photo="not_subscribed.jpg",  # Image for non-subscribed users
+            photo="https://envs.sh/eWS.jpg",  # Image for non-subscribed users
             caption="Please join our channel first!",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("Join Channel", url=f"https://t.me/moviegroupbat")],
@@ -70,7 +70,7 @@ async def start(client, message):
     # Different welcome messages for admins and users
     if is_admin:
         await message.reply_photo(
-            photo="admin_welcome.jpg",  # Image for admin welcome
+            photo="https://envs.sh/eeX.jpg",  # Image for admin welcome
             caption=(
                 "🎬 Welcome, Admin! 🍿\n"
                 "Fastest Movie Bot at your service!\n"
@@ -80,7 +80,7 @@ async def start(client, message):
         )
     else:
         await message.reply_photo(
-            photo="user_welcome.jpg",  # Image for user welcome
+            photo="https://envs.sh/eeX.jpg",  # Image for user welcome
             caption=(
                 "🎬 Welcome to Movie Bot! 🍿\n"
                 "Fastest way to get your favorite movies!\n"
@@ -108,7 +108,7 @@ async def handle_movie_request(client, message):
             photo="not_subscribed.jpg",
             caption="Please join our channel first!",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+                [InlineKeyboardButton("Join Channel", url=f"https://t.me/moviegroupbat")],
                 [InlineKeyboardButton("Try Again", callback_data="check_sub")]
             ])
         )
@@ -148,7 +148,7 @@ async def handle_movie_upload(client, message):
             photo="not_subscribed.jpg",
             caption="Please join our channel first!",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+                [InlineKeyboardButton("Join Channel", url=f"https://t.me/moviegroupbat")],
                 [InlineKeyboardButton("Try Again", callback_data="check_sub")]
             ])
         )
