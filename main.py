@@ -12,8 +12,8 @@ from os import environ
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+# Configure logging with more detail
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # Bot configuration from os.environ
@@ -29,7 +29,7 @@ except KeyError as e:
     raise ValueError(f"Environment variable {e} is not set.")
 
 # Log all environment variables for debugging
-logger.info("All environment variables: %s", os.environ)
+logger.debug("All environment variables: %s", os.environ)
 logger.info(f"Loaded API_ID: {API_ID}")
 logger.info(f"Loaded API_HASH: {API_HASH}")
 logger.info(f"Loaded BOT_TOKEN: {BOT_TOKEN}")
@@ -49,19 +49,19 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.send_header("Content-type", "text/plain")
         self.end_headers()
         self.wfile.write(b"OK")
-        logger.info("Health check responded with OK")
+        logger.debug("Health check responded with OK")
 
 def start_health_server():
-    port = int(os.environ.get("PORT", 8000))  # Use Koyeb's PORT env var, default to 8000
+    port = int(os.environ.get("PORT", 8000))  # Use Koyeb's PORT env var
     server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
     logger.info(f"Starting health check server on port {port}")
     server.serve_forever()
 
-# Initialize clients with optimization
+# Initialize Pyrogram client
 app = Client("movie_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN, workers=50)
 mongo_client = MongoClient(MONGO_URI, maxPoolSize=50)
 db = mongo_client["movie_db"]
-movies_collection: Collection = db["movies"]
+movies_collection = db["movies"]
 
 # Thread pool for database operations
 executor = ThreadPoolExecutor(max_workers=10)
@@ -78,12 +78,18 @@ async def get_imdb_info(movie_name):
 async def check_subscription(user_id):
     try:
         member = await app.get_chat_member(CHANNEL_USERNAME, user_id)
+        logger.debug(f"Subscription check for user {user_id}: {member.status}")
         return member.status in ["member", "administrator", "creator"]
     except Exception as e:
         logger.error(f"Subscription check failed for user {user_id}: {e}")
         return False
 
-# Greeting message for users
+# Raw update handler for all messages
+@app.on_raw_update()
+async def raw_update(client, update, users, chats):
+    logger.debug(f"Raw update received: {update}")
+
+# Greeting message for users (with images)
 @app.on_message(filters.command("start") & filters.private)
 async def start(client, message):
     user_id = message.from_user.id
@@ -93,7 +99,7 @@ async def start(client, message):
     if not await check_subscription(user_id):
         logger.info(f"User {user_id} not subscribed to {CHANNEL_USERNAME}")
         await message.reply_photo(
-            photo="not_subscribed.jpg",
+            photo="/app/not_subscribed.jpg",
             caption="Please join our channel first!",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
@@ -105,7 +111,7 @@ async def start(client, message):
     if is_admin:
         logger.info(f"Admin {user_id} started bot")
         await message.reply_photo(
-            photo="admin_welcome.jpg",
+            photo="/app/admin_welcome.jpg",
             caption=(
                 "🎬 Welcome, Admin! 🍿\n"
                 "Fastest Movie Bot at your service!\n"
@@ -116,7 +122,7 @@ async def start(client, message):
     else:
         logger.info(f"User {user_id} started bot")
         await message.reply_photo(
-            photo="user_welcome.jpg",
+            photo="/app/user_welcome.jpg",
             caption=(
                 "🎬 Welcome to Movie Bot! 🍿\n"
                 "Fastest way to get your favorite movies!\n"
@@ -135,17 +141,16 @@ async def check_sub_callback(client, callback):
     else:
         await callback.answer("Please join the channel first!", show_alert=True)
 
-# Handle movie requests
+# Handle movie requests (text only)
 @app.on_message(filters.text & filters.private)
 async def handle_movie_request(client, message):
     user_id = message.from_user.id
     
     if not await check_subscription(user_id):
-        await message.reply_photo(
-            photo="not_subscribed.jpg",
-            caption="Please join our channel first!",
+        await message.reply(
+            "Please join our channel first!\n"
+            f"Join here: https://t.me/{CHANNEL_USERNAME[1:]}",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
                 [InlineKeyboardButton("Try Again", callback_data="check_sub")]
             ])
         )
@@ -175,17 +180,16 @@ async def handle_movie_request(client, message):
         progress_args=(message,)
     )
 
-# Handle forwarded movie files - Admin only
+# Handle forwarded movie files - Admin only (text only)
 @app.on_message(filters.document & filters.private)
 async def handle_movie_upload(client, message):
     user_id = message.from_user.id
     
     if not await check_subscription(user_id):
-        await message.reply_photo(
-            photo="not_subscribed.jpg",
-            caption="Please join our channel first!",
+        await message.reply(
+            "Please join our channel first!\n"
+            f"Join here: https://t.me/{CHANNEL_USERNAME[1:]}",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
                 [InlineKeyboardButton("Try Again", callback_data="check_sub")]
             ])
         )
