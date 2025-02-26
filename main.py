@@ -14,12 +14,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Bot configuration from os.environ
-API_ID = os.environ.get("API_ID")
-API_HASH = os.environ.get("API_HASH")
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-MONGO_URI = os.environ.get("MONGO_URI")
-CHANNEL_USERNAME = "@YourChannelUsername"  # Change this
-ADMIN_IDS = set(map(int, os.environ.get("ADMIN_IDS", "").split(",")))
+API_ID = os.environ.get("12618934")
+API_HASH = os.environ.get("49aacd0bc2f8924add29fb02e20c8a16")
+BOT_TOKEN = os.environ.get("7857321740:AAHSUfjwO3w6Uffmxm9vCUMl36FtXl5-r6w")
+MONGO_URI = os.environ.get("mongodb+srv://pcmovies:pcmovies@cluster0.4vv9ebl.mongodb.net/?retryWrites=true&w=majority")
+CHANNEL_USERNAME = "@moviegroupbat"  # Change this
+ADMIN_IDS = set(map(int, os.environ.get("ADMIN_IDS", "5032034594").split(",")))
 
 # Log all environment variables for debugging
 logger.info("All environment variables: %s", os.environ)
