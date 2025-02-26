@@ -1,5 +1,6 @@
 import os
 import asyncio
+import threading
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from pymongo import MongoClient
@@ -8,7 +9,6 @@ import logging
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor
 from http.server import HTTPServer, BaseHTTPRequestHandler
-import threading  # Added missing import
 
 # Configure logging
 logging.basicConfig(
@@ -17,7 +17,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Rest of the code remains unchanged...
+# Bot configuration
 try:
     API_ID = int(os.environ.get('API_ID', '12618934'))
     API_HASH = os.environ.get('API_HASH', '49aacd0bc2f8924add29fb02e20c8a16')
@@ -29,9 +29,7 @@ except (ValueError, TypeError) as e:
     logger.error(f"Invalid configuration: {e}")
     raise
 
-# Validate configuration
-if not all([API_ID, API_HASH, BOT_TOKEN, MONGO_URI]):
-    raise ValueError("Required configuration parameters are missing")
+logger.info("Configuration loaded successfully")
 
 # Health check server
 class HealthCheckHandler(BaseHTTPRequestHandler):
@@ -40,19 +38,33 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         self.send_header("Content-type", "text/plain")
         self.end_headers()
         self.wfile.write(b"OK")
+        logger.debug("Health check OK")
 
 def start_health_server():
     port = int(os.environ.get("PORT", 8000))
     server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
-    logger.info(f"Health check server running on port {port}")
+    logger.info(f"Health check server starting on port {port}")
     server.serve_forever()
 
 # Initialize clients
-app = Client("movie_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN, workers=50)
-mongo_client = MongoClient(MONGO_URI, maxPoolSize=50)
-db = mongo_client["movie_db"]
-movies_collection = db["movies"]
-executor = ThreadPoolExecutor(max_workers=10)
+try:
+    app = Client("movie_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN, workers=50)
+    mongo_client = MongoClient(MONGO_URI, maxPoolSize=50)
+    db = mongo_client["movie_db"]
+    movies_collection = db["movies"]
+    executor = ThreadPoolExecutor(max_workers=10)
+    logger.info("Clients initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize clients: {e}")
+    raise
+
+# Test MongoDB connection
+try:
+    mongo_client.server_info()
+    logger.info("MongoDB connection successful")
+except Exception as e:
+    logger.error(f"MongoDB connection failed: {e}")
+    raise
 
 # IMDB cache
 @lru_cache(maxsize=1000)
@@ -63,27 +75,34 @@ async def get_imdb_info(movie_name):
             async with session.get(url) as response:
                 return await response.json()
         except Exception as e:
-            logger.error(f"IMDB API error: {e}")
+            logger.error(f"IMDB API error for {movie_name}: {e}")
             return {}
 
 async def check_subscription(user_id):
     try:
         member = await app.get_chat_member(CHANNEL_USERNAME, user_id)
-        return member.status in ["member", "administrator", "creator"]
+        status = member.status in ["member", "administrator", "creator"]
+        logger.debug(f"Subscription check for {user_id}: {status}")
+        return status
     except Exception as e:
         logger.error(f"Subscription check failed for {user_id}: {e}")
         return False
 
 @app.on_raw_update()
 async def raw_update(client, update, users, chats):
-    logger.debug(f"Raw update: {update}")
+    logger.debug(f"Raw update received")
 
 @app.on_message(filters.command("start") & filters.private)
 async def start(client, message):
     user_id = message.from_user.id
+    logger.info(f"Received /start from user {user_id}")
     is_admin = user_id in ADMIN_IDS
     
-    if not await check_subscription(user_id):
+    subscribed = await check_subscription(user_id)
+    logger.info(f"Subscription check for {user_id}: {subscribed}")
+    
+    if not subscribed:
+        logger.info(f"User {user_id} not subscribed to {CHANNEL_USERNAME}")
         await message.reply(
             f"Please join our channel first!\nJoin: https://t.me/{CHANNEL_USERNAME[1:]}",
             reply_markup=InlineKeyboardMarkup([
@@ -100,12 +119,18 @@ async def start(client, message):
         "🎬 Welcome to Movie Bot! 🍿\nFastest way to get your favorite movies!\n"
         "• Type a movie name to request"
     )
+    logger.info(f"Sending welcome message to {user_id}")
     await message.reply(welcome_msg)
 
 @app.on_callback_query(filters.regex("check_sub"))
 async def check_sub_callback(client, callback):
     user_id = callback.from_user.id
-    if await check_subscription(user_id):
+    logger.info(f"Received check_sub callback from {user_id}")
+    
+    subscribed = await check_subscription(user_id)
+    logger.info(f"Subscription check for {user_id}: {subscribed}")
+    
+    if subscribed:
         await callback.message.delete()
         await start(client, callback.message)
     else:
@@ -114,8 +139,12 @@ async def check_sub_callback(client, callback):
 @app.on_message(filters.text & filters.private)
 async def handle_movie_request(client, message):
     user_id = message.from_user.id
+    logger.info(f"Received movie request from {user_id}: {message.text}")
     
-    if not await check_subscription(user_id):
+    subscribed = await check_subscription(user_id)
+    logger.info(f"Subscription check for {user_id}: {subscribed}")
+    
+    if not subscribed:
         await message.reply(
             f"Please join our channel first!\nJoin: https://t.me/{CHANNEL_USERNAME[1:]}",
             reply_markup=InlineKeyboardMarkup([
@@ -125,11 +154,13 @@ async def handle_movie_request(client, message):
         return
 
     movie_name = message.text.strip()
+    logger.info(f"Searching for movie: {movie_name}")
     movie_data = await asyncio.get_running_loop().run_in_executor(
         executor, movies_collection.find_one, {"title": {"$regex": movie_name, "$options": "i"}}
     )
     
     if not movie_data:
+        logger.info(f"Movie not found: {movie_name}")
         await message.reply("Movie not found! Contact an admin to add it.")
         return
 
@@ -139,7 +170,7 @@ async def handle_movie_request(client, message):
         f"⭐ IMDB: {imdb_info.get('imdbRating', 'N/A')}\n"
         f"📜 {imdb_info.get('Plot', 'No description available')}"
     )
-    
+    logger.info(f"Sending movie {movie_data['title']} to {user_id}")
     await message.reply_document(
         document=movie_data["file_id"],
         caption=caption,
@@ -151,8 +182,12 @@ async def handle_movie_request(client, message):
 @app.on_message(filters.document & filters.private)
 async def handle_movie_upload(client, message):
     user_id = message.from_user.id
+    logger.info(f"Received document from {user_id}")
     
-    if not await check_subscription(user_id):
+    subscribed = await check_subscription(user_id)
+    logger.info(f"Subscription check for {user_id}: {subscribed}")
+    
+    if not subscribed:
         await message.reply(
             f"Please join our channel first!\nJoin: https://t.me/{CHANNEL_USERNAME[1:]}",
             reply_markup=InlineKeyboardMarkup([
@@ -162,10 +197,12 @@ async def handle_movie_upload(client, message):
         return
 
     if user_id not in ADMIN_IDS:
+        logger.info(f"Non-admin {user_id} tried to upload")
         await message.reply("Sorry, only admins can add movies!")
         return
 
     if not message.document.mime_type.startswith("video/"):
+        logger.info(f"Invalid file type from {user_id}")
         await message.reply("Please forward a video file!")
         return
 
@@ -177,6 +214,7 @@ async def handle_movie_upload(client, message):
     )
     
     if exists:
+        logger.info(f"Movie {movie_title} already exists")
         await message.reply(f"'{movie_title}' is already in the database!")
         return
 
@@ -184,6 +222,7 @@ async def handle_movie_upload(client, message):
     await asyncio.get_running_loop().run_in_executor(
         executor, movies_collection.insert_one, movie_data
     )
+    logger.info(f"Movie {movie_title} indexed successfully")
     await message.reply(f"✅ '{movie_title}' indexed successfully!")
 
 async def upload_progress(current, total, message):
@@ -204,7 +243,6 @@ async def setup_database():
         logger.error(f"Database setup failed: {e}")
 
 async def main():
-    # Start health check server
     health_thread = threading.Thread(target=start_health_server, daemon=True)
     health_thread.start()
     
@@ -212,10 +250,11 @@ async def main():
         await setup_database()
         await app.start()
         logger.info("Bot is running...")
-        # Keep running until interrupted
         await asyncio.Event().wait()
     except KeyboardInterrupt:
         logger.info("Shutting down...")
+    except Exception as e:
+        logger.error(f"Main loop failed: {e}")
     finally:
         await app.stop()
         mongo_client.close()
@@ -225,4 +264,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except Exception as e:
-        logger.error(f"Application failed: {e}")
+        logger.error(f"Application failed to start: {e}")
