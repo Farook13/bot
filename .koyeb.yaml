@@ -5,7 +5,7 @@ services:
       repo: https://github.com/Farook13/bot
       branch: main
     ports:
-      - port: 8080  # Optional, not needed for worker
+      - port: 8000  # Optional, not needed for worker
     instance_types:
       - type: free  # Use Koyeb's free tier
     build:
