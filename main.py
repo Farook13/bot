@@ -44,12 +44,12 @@ if not API_ID or not API_HASH or not BOT_TOKEN:
 
 # Simple HTTP server for Koyeb health check
 class HealthCheckHandler(BaseHTTPRequestHandler):
-def do_GET(self):
- self.send_response(200)
- self.send_header("Content-type", "text/plain")
- self.end_headers()
- self.wfile.write(b"OK")
- logger.debug("Health check responded with OK")
+ def do_GET(self):
+     self.send_response(200)
+     self.send_header("Content-type", "text/plain")
+     self.end_headers()
+     self.wfile.write(b"OK")
+     logger.debug("Health check responded with OK")
 
 def start_health_server():
  port = int(os.environ.get("PORT", 8000)) # Use Koyeb's PORT env var
