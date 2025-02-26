@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 API_ID = int(environ.get('API_ID',"12618934"))
 API_HASH = environ.get('API_HASH',"49aacd0bc2f8924add29fb02e20c8a16")
 try:
-    BOT_TOKEN = environ.get('BOT_TOKEN',"7854832338:AAFE5vNqzm625uEv02YgN6s1M4JL_QbevEs")
+    BOT_TOKEN = environ.get('BOT_TOKEN',"7854832338:AAGmEzyYImK80tW5Ll0MaAzW52usqxEzcuU")
     MONGO_URI = environ.get('MONGO_URI',"mongodb+srv://pcmovies:pcmovies@cluster0.4vv9ebl.mongodb.net/?retryWrites=true&w=majority")
     CHANNEL_USERNAME = "@moviegroupbat"  # Change this
     ADMIN_IDS = set(map(int, os.environ.get("ADMIN_IDS", "5032034594").split(",")))
