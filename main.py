@@ -9,6 +9,8 @@ import logging
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor
 from os import environ
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -22,7 +24,6 @@ try:
     MONGO_URI = environ.get('MONGO_URI',"mongodb+srv://pcmovies:pcmovies@cluster0.4vv9ebl.mongodb.net/?retryWrites=true&w=majority")
     CHANNEL_USERNAME = "@moviegroupbat"  # Change this
     ADMIN_IDS = set(map(int, os.environ.get("ADMIN_IDS", "5032034594").split(",")))
-
 except KeyError as e:
     logger.error(f"Missing required environment variable: {e}")
     raise ValueError(f"Environment variable {e} is not set.")
@@ -40,6 +41,21 @@ if not MONGO_URI or MONGO_URI.strip() == "":
     raise ValueError("MONGO_URI is empty. Please provide a valid MongoDB connection string.")
 if not API_ID or not API_HASH or not BOT_TOKEN:
     raise ValueError("API_ID, API_HASH, or BOT_TOKEN is empty. Please provide valid Telegram API credentials.")
+
+# Simple HTTP server for Koyeb health check
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"OK")
+        logger.info("Health check responded with OK")
+
+def start_health_server():
+    port = int(os.environ.get("PORT", 8000))  # Use Koyeb's PORT env var, default to 8000
+    server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+    logger.info(f"Starting health check server on port {port}")
+    server.serve_forever()
 
 # Initialize clients with optimization
 app = Client("movie_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN, workers=50)
@@ -137,7 +153,7 @@ async def handle_movie_request(client, message):
     
     movie_name = message.text.strip()
     movie_data = await asyncio.get_running_loop().run_in_executor(
-        executor, movies_collection.find_one, {"title": {"`\(regex": movie_name, "\)`options": "i"}}
+        executor, movies_collection.find_one, {"title": {"$regex": movie_name, "$options": "i"}}
     )
     
     if not movie_data:
@@ -222,6 +238,8 @@ async def setup_database():
     logger.info("Database indexes created successfully.")
 
 if __name__ == "__main__":
+    # Start health check server in a separate thread
+    threading.Thread(target=start_health_server, daemon=True).start()
     loop = asyncio.get_event_loop()
     loop.run_until_complete(setup_database())
     logger.info("Bot starting...")
