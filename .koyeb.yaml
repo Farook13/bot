@@ -1,0 +1,14 @@
+name: telegram-movie-bot
+services:
+  - name: bot
+    git:
+      repo: <your-git-repo-url>
+      branch: main
+    ports:
+      - port: 8080  # Optional, not needed for worker
+    instance_types:
+      - type: free  # Use Koyeb's free tier
+    build:
+      command: pip install -r requirements.txt
+    run:
+      command: python main.py
