@@ -2,7 +2,7 @@ name: telegram-movie-bot
 services:
   - name: bot
     git:
-      repo: <your-git-repo-url>
+      repo: https://github.com/Farook13/bot
       branch: main
     ports:
       - port: 8080  # Optional, not needed for worker
