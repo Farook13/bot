@@ -15,8 +15,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Bot configuration from os.environ
-API_ID = environ.get('API_ID',"12618934")
-API_HASH = int(environ.get('API_HASH',"49aacd0bc2f8924add29fb02e20c8a16"))
+API_ID = int(environ.get('API_ID',"12618934"))
+API_HASH = environ.get('API_HASH',"49aacd0bc2f8924add29fb02e20c8a16")
 BOT_TOKEN = environ.get('BOT_TOKEN',"7857321740:AAHSUfjwO3w6Uffmxm9vCUMl36FtXl5-r6w")
 MONGO_URI = environ.get('MONGO_URI',"mongodb+srv://pcmovies:pcmovies@cluster0.4vv9ebl.mongodb.net/?retryWrites=true&w=majority")
 CHANNEL_USERNAME = "@moviegroupbat"  # Change this
