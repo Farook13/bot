@@ -8,6 +8,7 @@ import logging
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor
 from http.server import HTTPServer, BaseHTTPRequestHandler
+import threading  # Added missing import
 
 # Configure logging
 logging.basicConfig(
@@ -16,6 +17,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Rest of the code remains unchanged...
+​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​
 # Bot configuration
 try:
     API_ID = int(os.environ.get('API_ID', '12618934'))
@@ -203,11 +206,25 @@ async def setup_database():
         logger.error(f"Database setup failed: {e}")
 
 async def main():
-    threading.Thread(target=start_health_server, daemon=True).start()
-    await setup_database()
-    await app.start()
-    logger.info("Bot is running...")
-    await asyncio.Event().wait()
+    # Start health check server
+    health_thread = threading.Thread(target=start_health_server, daemon=True)
+    health_thread.start()
+    
+    try:
+        await setup_database()
+        await app.start()
+        logger.info("Bot is running...")
+        # Keep running until interrupted
+        await asyncio.Event().wait()
+    except KeyboardInterrupt:
+        logger.info("Shutting down...")
+    finally:
+        await app.stop()
+        mongo_client.close()
+        logger.info("Bot stopped")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except Exception as e:
+        logger.error(f"Application failed: {e}")
