@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 API_ID = os.getenv("12618934")
 API_HASH = os.getenv("49aacd0bc2f8924add29fb02e20c8a16")
 BOT_TOKEN = os.getenv("7857321740:AAHSUfjwO3w6Uffmxm9vCUMl36FtXl5-r6w")
-MONGO_URI = os.getenv("mongo dp not found")
+MONGO_URI = os.getenv("mongodb+srv://saidalimuhamed88:iladias2025@cluster0.qt4dv.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 CHANNEL_USERNAME = "@moviegroupbat"  # Change this
 ADMIN_IDS = set(map(int, os.getenv("ADMIN_IDS", "5032034594").split(",")))  # Comma-separated admin Telegram IDs
 
