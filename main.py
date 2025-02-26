@@ -17,16 +17,23 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-API_ID = os.getenv("12618934")
-API_HASH = os.getenv("49aacd0bc2f8924add29fb02e20c8a16")
-BOT_TOKEN = os.getenv("7857321740:AAHSUfjwO3w6Uffmxm9vCUMl36FtXl5-r6w")
-MONGO_URI = os.getenv("mongodb+srv://pcmovies:pcmovies@cluster0.4vv9ebl.mongodb.net/?retryWrites=true&w=majority")
-CHANNEL_USERNAME = "@moviegroupbat"  # Change this
-ADMIN_IDS = set(map(int, os.getenv("ADMIN_IDS", "5032034594").split(",")))  # Comma-separated admin Telegram IDs
+# Bot configuration
+API_ID = os.getenv("API_ID")
+API_HASH = os.getenv("API_HASH")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+MONGO_URI = os.getenv("MONGO_URI")
+CHANNEL_USERNAME = "@YourChannelUsername"  # Change this
+ADMIN_IDS = set(map(int, os.getenv("ADMIN_IDS", "").split(",")))
 
-
-# Log and validate MONGO_URI
+# Log all environment variables for debugging
+logger.info("All environment variables: %s", os.environ)
+logger.info(f"Loaded API_ID: {API_ID}")
+logger.info(f"Loaded API_HASH: {API_HASH}")
+logger.info(f"Loaded BOT_TOKEN: {BOT_TOKEN}")
 logger.info(f"Loaded MONGO_URI: {MONGO_URI}")
+logger.info(f"Loaded ADMIN_IDS: {ADMIN_IDS}")
+
+# Validate MONGO_URI
 if not MONGO_URI or MONGO_URI.strip() == "":
     raise ValueError("MONGO_URI environment variable is not set or is empty. Please provide a valid MongoDB connection string.")
 
@@ -120,7 +127,7 @@ async def handle_movie_request(client, message):
     
     movie_name = message.text.strip()
     movie_data = await asyncio.get_running_loop().run_in_executor(
-        executor, movies_collection.find_one, {"title": {"$regex": movie_name, "$options": "i"}}
+        executor, movies_collection.find_one, {"title": {"`\(regex": movie_name, "\)`options": "i"}}
     )
     
     if not movie_data:
