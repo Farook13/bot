@@ -28,7 +28,7 @@ except KeyError as e:
  logger.error(f"Missing required environment variable: {e}")
  raise ValueError(f"Environment variable {e} is not set.")
 
-# Log all environment variables for debugging
+ # Log all environment variables for debugging
 logger.debug("All environment variables: %s", os.environ)
 logger.info(f"Loaded API_ID: {API_ID}")
 logger.info(f"Loaded API_HASH: {API_HASH}")
@@ -143,7 +143,7 @@ async def check_sub_callback(client, callback):
  logger.error(f"Error in check_sub callback for user {user_id}: {e}")
  await callback.answer("An error occurred. Please try again.")
 
-# Handle movie requests (text only)
+# Handle movie requests ( text only)
 @app.on_message(filters.text & filters.private)
 async def handle_movie_request(client, message):
  user_id = message.from_user.id
@@ -224,7 +224,7 @@ async def handle_movie_upload(client, message):
  return
  
  movie_data = {"title": movie_title, "file_id": file_id}
- await asyncio.get_running_loop().run_in_executor (
+ await asyncio.get_running_loop().run_in_executor(
  executor, movies_collection.insert_one, movie_data
  )
  
