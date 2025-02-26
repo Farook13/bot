@@ -18,8 +18,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Rest of the code remains unchanged...
-​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​​
-# Bot configuration
 try:
     API_ID = int(os.environ.get('API_ID', '12618934'))
     API_HASH = os.environ.get('API_HASH', '49aacd0bc2f8924add29fb02e20c8a16')
