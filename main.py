@@ -90,7 +90,11 @@ async def check_subscription(user_id):
 
 @app.on_raw_update()
 async def raw_update(client, update, users, chats):
-    logger.debug(f"Raw update received")
+    logger.debug(f"Raw update received: {update}")
+
+@app.on_message()  # Catch-all handler for all messages
+async def catch_all(client, message):
+    logger.info(f"Received message from {message.from_user.id}: {message.text or 'No text'}")
 
 @app.on_message(filters.command("start") & filters.private)
 async def start(client, message):
