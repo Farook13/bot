@@ -72,7 +72,7 @@ async def start(client, message):
             photo="not_subscribed.jpg",
             caption="Please join our channel first!",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+                [InlineKeyboardButton("Join Channel", url=f"https://t.me/moviegroupbat")],
                 [InlineKeyboardButton("Try Again", callback_data="check_sub")]
             ])
         )
@@ -118,7 +118,7 @@ async def handle_movie_request(client, message):
             photo="not_subscribed.jpg",
             caption="Please join our channel first!",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+                [InlineKeyboardButton("Join Channel", url=f"https://t.me/moviegroupbat")],
                 [InlineKeyboardButton("Try Again", callback_data="check_sub")]
             ])
         )
@@ -158,7 +158,7 @@ async def handle_movie_upload(client, message):
             photo="not_subscribed.jpg",
             caption="Please join our channel first!",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
+                [InlineKeyboardButton("Join Channel", url=f"https://t.me/moviegroupbat")],
                 [InlineKeyboardButton("Try Again", callback_data="check_sub")]
             ])
         )
