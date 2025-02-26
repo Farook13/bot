@@ -7,24 +7,19 @@ from pymongo.collection import Collection
 import aiohttp
 import logging
 from functools import lru_cache
-from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor
-
-# Load environment variables
-load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Bot configuration
-API_ID = os.getenv("12618934")
-API_HASH = os.getenv("49aacd0bc2f8924add29fb02e20c8a16")
-BOT_TOKEN = os.getenv("7857321740:AAHSUfjwO3w6Uffmxm9vCUMl36FtXl5-r6w")
-MONGO_URI = os.getenv('mongodb+srv://pcmovies:pcmovies@cluster0.4vv9ebl.mongodb.net/?retryWrites=true&w=majority')
-CHANNEL_USERNAME = "@moviegroupbat"  # Change this
-ADMIN_IDS = set(map(int, os.getenv("ADMIN_IDS", "5032034594").split(",")))  # Comma-separated admin Telegram IDs
-
+# Bot configuration from os.environ
+API_ID = os.environ.get("API_ID")
+API_HASH = os.environ.get("API_HASH")
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+MONGO_URI = os.environ.get("MONGO_URI")
+CHANNEL_USERNAME = "@YourChannelUsername"  # Change this
+ADMIN_IDS = set(map(int, os.environ.get("ADMIN_IDS", "").split(",")))
 
 # Log all environment variables for debugging
 logger.info("All environment variables: %s", os.environ)
@@ -34,9 +29,11 @@ logger.info(f"Loaded BOT_TOKEN: {BOT_TOKEN}")
 logger.info(f"Loaded MONGO_URI: {MONGO_URI}")
 logger.info(f"Loaded ADMIN_IDS: {ADMIN_IDS}")
 
-# Validate MONGO_URI
+# Validate critical variables
 if not MONGO_URI or MONGO_URI.strip() == "":
     raise ValueError("MONGO_URI environment variable is not set or is empty. Please provide a valid MongoDB connection string.")
+if not API_ID or not API_HASH or not BOT_TOKEN:
+    raise ValueError("API_ID, API_HASH, or BOT_TOKEN is not set. Please provide valid Telegram API credentials.")
 
 # Initialize clients with optimization
 app = Client("movie_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN, workers=50)
@@ -128,7 +125,7 @@ async def handle_movie_request(client, message):
     
     movie_name = message.text.strip()
     movie_data = await asyncio.get_running_loop().run_in_executor(
-        executor, movies_collection.find_one, {"title": {"`\(regex": movie_name, "\)`options": "i"}}
+        executor, movies_collection.find_one, {"title": {"$regex": movie_name, "$options": "i"}}
     )
     
     if not movie_data:
