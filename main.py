@@ -44,7 +44,7 @@ if not API_ID or not API_HASH or not BOT_TOKEN:
 
 # Simple HTTP server for Koyeb health check
 class HealthCheckHandler(BaseHTTPRequestHandler):
- def do_GET(self):
+def do_GET(self):
  self.send_response(200)
  self.send_header("Content-type", "text/plain")
  self.end_headers()
