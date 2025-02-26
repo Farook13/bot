@@ -23,10 +23,11 @@ API_HASH = os.getenv("API_HASH")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 MONGO_URI = os.getenv("MONGO_URI")
 CHANNEL_USERNAME = "@YourChannelUsername"  # Change this
+ADMIN_IDS = set(map(int, os.getenv("ADMIN_IDS", "").split(",")))  # Comma-separated admin Telegram IDs
 
 # Initialize clients with optimization
-app = Client("movie_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN, workers=50)  # Increased workers
-mongo_client = MongoClient(MONGO_URI, maxPoolSize=50)  # Connection pooling
+app = Client("movie_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN, workers=50)
+mongo_client = MongoClient(MONGO_URI, maxPoolSize=50)
 db = mongo_client["movie_db"]
 movies_collection: Collection = db["movies"]
 
@@ -41,7 +42,7 @@ async def get_imdb_info(movie_name):
         async with session.get(url) as response:
             return await response.json()
 
-# Check subscription status (cached internally by Pyrogram)
+# Check subscription status
 async def check_subscription(user_id):
     try:
         member = await app.get_chat_member(CHANNEL_USERNAME, user_id)
@@ -49,13 +50,16 @@ async def check_subscription(user_id):
     except:
         return False
 
-# Greeting message
+# Greeting message for users
 @app.on_message(filters.command("start") & filters.private)
 async def start(client, message):
     user_id = message.from_user.id
+    is_admin = user_id in ADMIN_IDS
+
     if not await check_subscription(user_id):
-        await message.reply(
-            "Please join our channel first!",
+        await message.reply_photo(
+            photo="not_subscribed.jpg",  # Image for non-subscribed users
+            caption="Please join our channel first!",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
                 [InlineKeyboardButton("Try Again", callback_data="check_sub")]
@@ -63,31 +67,46 @@ async def start(client, message):
         )
         return
     
-    welcome_msg = (
-        "🎬 Welcome to Movie Bot! 🍿\n"
-        "Fastest way to get your favorite movies!\n"
-        "• Type a movie name to request\n"
-        "• Forward a movie file to add it"
-    )
-    await message.reply(welcome_msg)
+    # Different welcome messages for admins and users
+    if is_admin:
+        await message.reply_photo(
+            photo="admin_welcome.jpg",  # Image for admin welcome
+            caption=(
+                "🎬 Welcome, Admin! 🍿\n"
+                "Fastest Movie Bot at your service!\n"
+                "• Type a movie name to request\n"
+                "• Forward a movie file to add it"
+            )
+        )
+    else:
+        await message.reply_photo(
+            photo="user_welcome.jpg",  # Image for user welcome
+            caption=(
+                "🎬 Welcome to Movie Bot! 🍿\n"
+                "Fastest way to get your favorite movies!\n"
+                "• Type a movie name to request"
+            )
+        )
 
 # Handle subscription check
 @app.on_callback_query(filters.regex("check_sub"))
 async def check_sub_callback(client, callback):
     user_id = callback.from_user.id
     if await check_subscription(user_id):
-        await callback.message.edit("✅ Subscription verified! Type a movie name or forward a file!")
+        await callback.message.delete()  # Remove subscription prompt
+        await start(client, callback.message)  # Resend start message
     else:
         await callback.answer("Please join the channel first!", show_alert=True)
 
-# Handle movie requests (text input)
+# Handle movie requests (text input) - Available to all
 @app.on_message(filters.text & filters.private)
 async def handle_movie_request(client, message):
     user_id = message.from_user.id
     
     if not await check_subscription(user_id):
-        await message.reply(
-            "Please join our channel first!",
+        await message.reply_photo(
+            photo="not_subscribed.jpg",
+            caption="Please join our channel first!",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
                 [InlineKeyboardButton("Try Again", callback_data="check_sub")]
@@ -101,7 +120,7 @@ async def handle_movie_request(client, message):
     )
     
     if not movie_data:
-        await message.reply("Movie not found! Try forwarding the movie file to add it.")
+        await message.reply("Movie not found! Contact an admin to add it.")
         return
     
     imdb_info = await get_imdb_info(movie_name)
@@ -119,14 +138,15 @@ async def handle_movie_request(client, message):
         progress_args=(message,)
     )
 
-# Handle forwarded movie files with faster indexing
+# Handle forwarded movie files - Admin only
 @app.on_message(filters.document & filters.private)
 async def handle_movie_upload(client, message):
     user_id = message.from_user.id
     
     if not await check_subscription(user_id):
-        await message.reply(
-            "Please join our channel first!",
+        await message.reply_photo(
+            photo="not_subscribed.jpg",
+            caption="Please join our channel first!",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
                 [InlineKeyboardButton("Try Again", callback_data="check_sub")]
@@ -134,17 +154,19 @@ async def handle_movie_upload(client, message):
         )
         return
     
+    if user_id not in ADMIN_IDS:
+        await message.reply("Sorry, only admins can add movies!")
+        return
+    
     if not message.document.mime_type.startswith("video/"):
         await message.reply("Please forward a video file!")
         return
     
     file_id = message.document.file_id
-    file_name = message.document.file_name or "Untitled"  # Fallback for missing filename
+    file_name = message.document.file_name or "Untitled"
     
-    # Extract movie title (remove extension, trim efficiently)
     movie_title = os.path.splitext(file_name)[0].strip()
     
-    # Fast existence check using count_documents (more efficient than find_one for this purpose)
     exists = await asyncio.get_running_loop().run_in_executor(
         executor, movies_collection.count_documents, {"title": movie_title}
     )
@@ -153,37 +175,30 @@ async def handle_movie_upload(client, message):
         await message.reply(f"'{movie_title}' is already in the database!")
         return
     
-    # Prepare movie data
     movie_data = {"title": movie_title, "file_id": file_id}
-    
-    # Batch insert in thread pool (minimal overhead)
     await asyncio.get_running_loop().run_in_executor(
         executor, movies_collection.insert_one, movie_data
     )
     
     await message.reply(f"✅ '{movie_title}' indexed successfully!")
 
-# Upload progress callback (optimized)
+# Upload progress callback
 async def upload_progress(current, total, message):
     if current == total:
         return
-    # Reduce updates to every 25% for less overhead
     if current % (total // 4) == 0:
         await message.edit_text(f"Uploading: {int((current/total)*100)}%")
 
 # Optimize MongoDB
 async def setup_database():
-    # Ensure indexes exist (run once)
     await asyncio.get_running_loop().run_in_executor(
         executor, lambda: movies_collection.create_index([("title", "text")])
     )
-    # Unique index on title for faster duplicate checks
     await asyncio.get_running_loop().run_in_executor(
         executor, lambda: movies_collection.create_index([("title", 1)], unique=True)
     )
 
-if name == "__main__":
-    # Start bot
+if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.run_until_complete(setup_database())
     logger.info("Bot starting...")
