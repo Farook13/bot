@@ -9,8 +9,6 @@ import logging
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor
 from os import environ
-import threading
-from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -43,18 +41,6 @@ if not MONGO_URI or MONGO_URI.strip() == "":
 if not API_ID or not API_HASH or not BOT_TOKEN:
     raise ValueError("API_ID, API_HASH, or BOT_TOKEN is empty. Please provide valid Telegram API credentials.")
 
-# Simple HTTP server for health checks
-class HealthCheckHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-type", "text/plain")
-        self.end_headers()
-        self.wfile.write(b"OK")
-
-def start_health_server():
-    server = HTTPServer(('0.0.0.0', 8000), HealthCheckHandler)
-    server.serve_forever()
-
 # Initialize clients with optimization
 app = Client("movie_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN, workers=50)
 mongo_client = MongoClient(MONGO_URI, maxPoolSize=50)
@@ -77,16 +63,19 @@ async def check_subscription(user_id):
     try:
         member = await app.get_chat_member(CHANNEL_USERNAME, user_id)
         return member.status in ["member", "administrator", "creator"]
-    except:
+    except Exception as e:
+        logger.error(f"Subscription check failed for user {user_id}: {e}")
         return False
 
 # Greeting message for users
 @app.on_message(filters.command("start") & filters.private)
 async def start(client, message):
     user_id = message.from_user.id
+    logger.info(f"Received /start from user_id: {user_id}")
     is_admin = user_id in ADMIN_IDS
 
     if not await check_subscription(user_id):
+        logger.info(f"User {user_id} not subscribed to {CHANNEL_USERNAME}")
         await message.reply_photo(
             photo="not_subscribed.jpg",
             caption="Please join our channel first!",
@@ -98,6 +87,7 @@ async def start(client, message):
         return
     
     if is_admin:
+        logger.info(f"Admin {user_id} started bot")
         await message.reply_photo(
             photo="admin_welcome.jpg",
             caption=(
@@ -108,6 +98,7 @@ async def start(client, message):
             )
         )
     else:
+        logger.info(f"User {user_id} started bot")
         await message.reply_photo(
             photo="user_welcome.jpg",
             caption=(
@@ -121,6 +112,7 @@ async def start(client, message):
 @app.on_callback_query(filters.regex("check_sub"))
 async def check_sub_callback(client, callback):
     user_id = callback.from_user.id
+    logger.info(f"Received check_sub callback from user_id: {user_id}")
     if await check_subscription(user_id):
         await callback.message.delete()
         await start(client, callback.message)
@@ -145,7 +137,7 @@ async def handle_movie_request(client, message):
     
     movie_name = message.text.strip()
     movie_data = await asyncio.get_running_loop().run_in_executor(
-        executor, movies_collection.find_one, {"title": {"$regex": movie_name, "$options": "i"}}
+        executor, movies_collection.find_one, {"title": {"`\(regex": movie_name, "\)`options": "i"}}
     )
     
     if not movie_data:
@@ -220,16 +212,16 @@ async def upload_progress(current, total, message):
 
 # Optimize MongoDB
 async def setup_database():
+    logger.info("Setting up database indexes...")
     await asyncio.get_running_loop().run_in_executor(
         executor, lambda: movies_collection.create_index([("title", "text")])
     )
     await asyncio.get_running_loop().run_in_executor(
         executor, lambda: movies_collection.create_index([("title", 1)], unique=True)
     )
+    logger.info("Database indexes created successfully.")
 
 if __name__ == "__main__":
-    # Start health check server in a separate thread
-    threading.Thread(target=start_health_server, daemon=True).start()
     loop = asyncio.get_event_loop()
     loop.run_until_complete(setup_database())
     logger.info("Bot starting...")
