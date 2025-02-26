@@ -17,13 +17,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Bot configuration from os.environ
-API_ID = int(environ.get('API_ID', '12618934'))
-API_HASH = environ.get('API_HASH', '49aacd0bc2f8924add29fb02e20c8a16')
-try:
-    BOT_TOKEN = os.environ["BOT_TOKEN"]
-    MONGO_URI = os.environ["MONGO_URI"]
-    CHANNEL_USERNAME = "@YourChannelUsername"  # Change this
-    ADMIN_IDS = set(map(int, os.environ.get("ADMIN_IDS", "").split(",")))
+API_ID = int(environ.get('API_ID',"12618934"))
+API_HASH = environ.get('API_HASH',"49aacd0bc2f8924add29fb02e20c8a16")
+ try:
+    BOT_TOKEN = environ.get('BOT_TOKEN',"7955983025:AAFqrIti8CrhCvPTY0IKV2qu4xnxF96sL40")
+    MONGO_URI = environ.get('MONGO_URI',"mongodb+srv://pcmovies:pcmovies@cluster0.4vv9ebl.mongodb.net/?retryWrites=true&w=majority")
+    CHANNEL_USERNAME = "@moviegroupbat"  # Change this
+    ADMIN_IDS = set(map(int, os.environ.get("ADMIN_IDS", "5032034594").split(",")))
+
 except KeyError as e:
     logger.error(f"Missing required environment variable: {e}")
     raise ValueError(f"Environment variable {e} is not set.")
