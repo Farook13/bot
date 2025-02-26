@@ -9,18 +9,24 @@ import logging
 from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor
 from os import environ
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Bot configuration from os.environ
-API_ID = int(environ.get('API_ID',"12618934"))
-API_HASH = environ.get('API_HASH',"49aacd0bc2f8924add29fb02e20c8a16")
-BOT_TOKEN = environ.get('BOT_TOKEN',"7955983025:AAFqrIti8CrhCvPTY0IKV2qu4xnxF96sL40")
-MONGO_URI = environ.get('MONGO_URI',"mongodb+srv://pcmovies:pcmovies@cluster0.4vv9ebl.mongodb.net/?retryWrites=true&w=majority")
-CHANNEL_USERNAME = "@moviegroupbat"  # Change this
-ADMIN_IDS = set(map(int, os.environ.get("ADMIN_IDS", "5032034594").split(",")))
+API_ID = int(environ.get('API_ID', '12618934'))
+API_HASH = environ.get('API_HASH', '49aacd0bc2f8924add29fb02e20c8a16')
+try:
+    BOT_TOKEN = os.environ["BOT_TOKEN"]
+    MONGO_URI = os.environ["MONGO_URI"]
+    CHANNEL_USERNAME = "@YourChannelUsername"  # Change this
+    ADMIN_IDS = set(map(int, os.environ.get("ADMIN_IDS", "").split(",")))
+except KeyError as e:
+    logger.error(f"Missing required environment variable: {e}")
+    raise ValueError(f"Environment variable {e} is not set.")
 
 # Log all environment variables for debugging
 logger.info("All environment variables: %s", os.environ)
@@ -32,9 +38,21 @@ logger.info(f"Loaded ADMIN_IDS: {ADMIN_IDS}")
 
 # Validate critical variables
 if not MONGO_URI or MONGO_URI.strip() == "":
-    raise ValueError("MONGO_URI environment variable is not set or is empty. Please provide a valid MongoDB connection string.")
+    raise ValueError("MONGO_URI is empty. Please provide a valid MongoDB connection string.")
 if not API_ID or not API_HASH or not BOT_TOKEN:
-    raise ValueError("API_ID, API_HASH, or BOT_TOKEN is not set. Please provide valid Telegram API credentials.")
+    raise ValueError("API_ID, API_HASH, or BOT_TOKEN is empty. Please provide valid Telegram API credentials.")
+
+# Simple HTTP server for health checks
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+def start_health_server():
+    server = HTTPServer(('0.0.0.0', 8000), HealthCheckHandler)
+    server.serve_forever()
 
 # Initialize clients with optimization
 app = Client("movie_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN, workers=50)
@@ -72,7 +90,7 @@ async def start(client, message):
             photo="not_subscribed.jpg",
             caption="Please join our channel first!",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Join Channel", url=f"https://t.me/moviegroupbat")],
+                [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
                 [InlineKeyboardButton("Try Again", callback_data="check_sub")]
             ])
         )
@@ -118,7 +136,7 @@ async def handle_movie_request(client, message):
             photo="not_subscribed.jpg",
             caption="Please join our channel first!",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Join Channel", url=f"https://t.me/moviegroupbat")],
+                [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
                 [InlineKeyboardButton("Try Again", callback_data="check_sub")]
             ])
         )
@@ -158,7 +176,7 @@ async def handle_movie_upload(client, message):
             photo="not_subscribed.jpg",
             caption="Please join our channel first!",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("Join Channel", url=f"https://t.me/moviegroupbat")],
+                [InlineKeyboardButton("Join Channel", url=f"https://t.me/{CHANNEL_USERNAME[1:]}")],
                 [InlineKeyboardButton("Try Again", callback_data="check_sub")]
             ])
         )
@@ -209,6 +227,8 @@ async def setup_database():
     )
 
 if __name__ == "__main__":
+    # Start health check server in a separate thread
+    threading.Thread(target=start_health_server, daemon=True).start()
     loop = asyncio.get_event_loop()
     loop.run_until_complete(setup_database())
     logger.info("Bot starting...")
